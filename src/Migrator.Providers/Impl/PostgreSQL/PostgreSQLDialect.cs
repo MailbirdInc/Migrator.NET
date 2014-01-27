@@ -34,12 +34,16 @@ namespace Migrator.Providers.PostgreSQL
             RegisterColumnType(DbType.String, 4000, "varchar($l)");
             RegisterColumnType(DbType.String, 1073741823, "text");
             RegisterColumnType(DbType.Time, "time");
+            RegisterColumnType(DbType.Guid, "uuid");
             
             RegisterProperty(ColumnProperty.Identity, "serial");
         }
 
-        public override Type TransformationProvider { get { return typeof(PostgreSQLTransformationProvider); } }
-        
+		public override ITransformationProvider GetTransformationProvider(Dialect dialect, string connectionString)
+		{
+			return new PostgreSQLTransformationProvider(dialect, connectionString);
+		}
+
         public override bool TableNameNeedsQuote
         {
             get { return false; }
