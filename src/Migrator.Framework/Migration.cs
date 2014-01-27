@@ -77,7 +77,8 @@ namespace Migrator.Framework
         /// <summary>
         /// Defines tranformations to port the database to the current version.
         /// </summary>
-        public abstract void Up();
+        /// <param name="progress">The progress reporting delegate</param>
+        public abstract void Up(System.Action<int> progressReporter);
 
         /// <summary>
         /// This is run after the Up transaction has been committed
@@ -89,7 +90,8 @@ namespace Migrator.Framework
         /// <summary>
         /// Defines transformations to revert things done in <c>Up</c>.
         /// </summary>
-        public abstract void Down();
+        /// <param name="progress">The progress reporting delegate</param>
+        public abstract void Down(System.Action<int> progressReporter);
 
         /// <summary>
         /// This is run after the Down transaction has been committed

@@ -36,6 +36,14 @@ namespace Migrator.Providers.Mysql
             }
         }
 
+        public override void RemoveIndex(string table, string name)
+		{
+			if (IndexExists(table, name))
+			{
+				ExecuteNonQuery(String.Format("DROP INDEX {1} ON {0}", table, _dialect.Quote(name)));
+			}
+		}
+
         public override bool ConstraintExists(string table, string name)
         {
             if (!TableExists(table)) 
@@ -56,6 +64,11 @@ namespace Migrator.Providers.Mysql
 
             return false;
         }
+
+        public override bool IndexExists(string table, string name)
+		{
+			return ConstraintExists(table, name);
+		}
         
         public override bool PrimaryKeyExists(string table, string name)
         {

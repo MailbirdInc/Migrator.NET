@@ -1,3 +1,4 @@
+using System;
 namespace Migrator.Framework
 {
     public interface IMigration
@@ -14,7 +15,7 @@ namespace Migrator.Framework
         /// <summary>
         /// Defines tranformations to port the database to the current version.
         /// </summary>
-        void Up();
+        void Up(Action<int> progressReporter);
 
         /// <summary>
         /// This is run after the Up transaction has been committed
@@ -24,7 +25,7 @@ namespace Migrator.Framework
         /// <summary>
         /// Defines transformations to revert things done in <c>Up</c>.
         /// </summary>
-        void Down();
+        void Down(Action<int> progressReporter);
 
         /// <summary>
         /// This is run after the Down transaction has been committed

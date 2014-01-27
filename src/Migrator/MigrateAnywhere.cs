@@ -58,38 +58,38 @@ namespace Migrator
             return !_goForward || Current <= version;
         }
 
-        public override void Migrate(IMigration migration)
+        public override void Migrate(IMigration migration, System.Action<int> progressReporter)
         {
             _provider.BeginTransaction();
             MigrationAttribute attr = (MigrationAttribute)Attribute.GetCustomAttribute(migration.GetType(), typeof(MigrationAttribute));
             
             if (_provider.AppliedMigrations.Contains(attr.Version)) {
-            	RemoveMigration(migration, attr);
+                RemoveMigration(migration, attr, progressReporter);
             } else {
-            	ApplyMigration(migration, attr);
+                ApplyMigration(migration, attr, progressReporter);
             }
         }
 
-        private void ApplyMigration(IMigration migration, MigrationAttribute attr)
+        private void ApplyMigration(IMigration migration, MigrationAttribute attr, System.Action<int> progressReporter)
         {
             // we're adding this one
             _logger.MigrateUp(Current, migration.Name);
             if(! DryRun)
             {
-                migration.Up();
+                migration.Up(progressReporter);
                 _provider.MigrationApplied(attr.Version);
                 _provider.Commit();
                 migration.AfterUp();
             }
         }
 
-        private void RemoveMigration(IMigration migration, MigrationAttribute attr)
+        private void RemoveMigration(IMigration migration, MigrationAttribute attr, System.Action<int> progressReporter)
         {
             // we're removing this one
             _logger.MigrateDown(Current, migration.Name);
             if (! DryRun)
             {
-                migration.Down();
+                migration.Down(progressReporter);
                 _provider.MigrationUnApplied(attr.Version);
                 _provider.Commit();
                 migration.AfterDown();

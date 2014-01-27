@@ -12,6 +12,7 @@ namespace Migrator.Providers.SqlServer
 			RegisterColumnType(DbType.AnsiString, "NVARCHAR(255)");
 			RegisterColumnType(DbType.AnsiString, 4000, "NVARCHAR($l)");
 			RegisterColumnType(DbType.AnsiString, 1073741823, "TEXT");
+            RegisterColumnType(DbType.Double, "FLOAT");
         }
 
         public override Type TransformationProvider { get { return typeof (SqlServerCeTransformationProvider); } }

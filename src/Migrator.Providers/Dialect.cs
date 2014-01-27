@@ -105,6 +105,17 @@ namespace Migrator.Providers
 
             return GetTypeName(type);
         }
+
+        /// <summary>
+        /// <para>Get the type from the specified database type name.</para>
+        /// <para>Note: This does not work perfectly, but it will do for most cases.</para>
+        /// </summary>
+        /// <param name="databaseTypeName">The name of the type.</param>
+        /// <returns>The <see cref="DbType"/>.</returns>
+        public virtual DbType GetDbType(string databaseTypeName)
+        {
+            return typeNames.GetDbType(databaseTypeName);
+        }
         
         public void RegisterProperty(ColumnProperty property, string sql)
         {

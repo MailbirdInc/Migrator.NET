@@ -22,7 +22,7 @@ namespace Migrator
     /// <summary>
     /// Migrations mediator.
     /// </summary>
-    public class Migrator
+    public class Migrator : IDisposable
     {
         private readonly ITransformationProvider _provider;
 
@@ -31,6 +31,7 @@ namespace Migrator
         private ILogger _logger = new Logger(false);
         protected bool _dryrun;
         private string[] _args;
+        private int _lastReportedProgress = -1; // Cannot be 0, since the first progress will be 0
 
         public string[] args
         {
@@ -67,6 +68,10 @@ namespace Migrator
             _migrationLoader.CheckForDuplicatedVersion();
         }
 
+        public void Dispose()
+        {
+            _provider.Dispose();
+        }
 
         /// <summary>
         /// Returns registered migration <see cref="System.Type">types</see>.
@@ -80,17 +85,9 @@ namespace Migrator
         /// Run all migrations up to the latest.  Make no changes to database if
         /// dryrun is true.
         /// </summary>
-        public void MigrateToLastVersion()
+        public void MigrateToLastVersion(System.Action<int> progressReporter)
         {
-            MigrateTo(_migrationLoader.LastVersion);
-        }
-
-        /// <summary>
-        /// Returns the current migrations applied to the database.
-        /// </summary>
-        public List<long> AppliedMigrations 
-        {
-            get { return _provider.AppliedMigrations; }
+            MigrateTo(_migrationLoader.LastVersion, progressReporter);
         }
 
         /// <summary>
@@ -123,13 +120,30 @@ namespace Migrator
         /// If <c>dryrun</c> is set, don't write any changes to the database.
         /// </summary>
         /// <param name="version">The version that must became the current one</param>
-        public void MigrateTo(long version)
+        /// <param name="progress">The progress reporting delegate</param>
+        public void MigrateTo(long version, System.Action<int> progressReporter)
         {
+            var numberOfMigrations = GetNumberOfMigrationsTo(version);
 
+            PerformMigrateTo(version, numberOfMigrations, progressReporter);
+        }
+
+        public int GetNumberOfMigrationsTo(long version)
+        {
+            var dryRun = DryRun;
+            DryRun = true;
+            var numberOfMigrations = PerformMigrateTo(version);
+            DryRun = dryRun;
+
+            return numberOfMigrations;
+        }
+
+        private int PerformMigrateTo(long version, int? numberOfMigrationsToVersion = null, System.Action<int> progressReporter = null)
+        {
             if (_migrationLoader.MigrationsTypes.Count == 0)
             {
                 _logger.Warn("No public classes with the Migration attribute were found.");
-                return;
+                return 0;
             }
 
             bool firstRun = true;
@@ -137,6 +151,7 @@ namespace Migrator
             migrate.DryRun = DryRun;
             Logger.Started(migrate.AppliedVersions, version);
 
+            int migrationsApplied = 0;
             while (migrate.Continue(version))
             {
                 IMigration migration = _migrationLoader.GetMigration(migrate.Current);
@@ -151,11 +166,26 @@ namespace Migrator
                 {
                     if (firstRun)
                     {
+                        // We report the progress at 0 when we start, because we don't want to report any progress if there's no migrations
+                        if (numberOfMigrationsToVersion.HasValue && progressReporter != null)
+                            ReportProgress(progressReporter, 0);
+
                         migration.InitializeOnce(_args);
                         firstRun = false;
                     }
 
-                    migrate.Migrate(migration);
+                    migrate.Migrate(migration, percentage =>
+                    {
+                        // As the individual migration's progress is reported, we convert it to the overall progress and report it
+                        if (numberOfMigrationsToVersion.HasValue && progressReporter != null)
+                            ReportProgress(progressReporter, (int)Math.Floor((migrationsApplied / (double)numberOfMigrationsToVersion.Value * 100) + (percentage / (double)numberOfMigrationsToVersion.Value)));
+                    });
+
+                    migrationsApplied++;
+
+                    // Make sure we report the percentage applied for this individual migration (in case the migration itself didn't report at all, or if 100% was not reported)
+                    if (numberOfMigrationsToVersion.HasValue && progressReporter != null)
+                        ReportProgress(progressReporter, (int)Math.Floor(migrationsApplied / (double)numberOfMigrationsToVersion.Value * 100)); // Copied above for first part of calculation
                 }
                 catch (Exception ex)
                 {
@@ -172,6 +202,18 @@ namespace Migrator
             }
 
             Logger.Finished(migrate.AppliedVersions, version);
+
+            return migrationsApplied;
+        }
+
+        private void ReportProgress(System.Action<int> progressReporter, int progressPercentage)
+        {
+            // Make sure we didn't just report this progress percentage. To avoid unnecessary duplicate reporting
+            if (_lastReportedProgress != progressPercentage)
+            {
+                progressReporter(progressPercentage);
+                _lastReportedProgress = progressPercentage;
+            }
         }
     }
 }

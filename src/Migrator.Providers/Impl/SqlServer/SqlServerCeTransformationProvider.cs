@@ -15,11 +15,12 @@ using System;
 using System.Data;
 using System.Data.SqlServerCe;
 using Migrator.Framework;
+using System.Collections.Generic;
 
 namespace Migrator.Providers.SqlServer
 {
 	/// <summary>
-	/// Migration transformations provider for Microsoft SQL Server.
+	/// Migration transformations provider for Microsoft SQL Server Compact Edition.
 	/// </summary>
 	public class SqlServerCeTransformationProvider : SqlServerTransformationProvider
 	{
@@ -39,11 +40,71 @@ namespace Migrator.Providers.SqlServer
 		public override bool ConstraintExists(string table, string name)
 		{
 			using (IDataReader reader =
-				ExecuteQuery(string.Format("SELECT cont.constraint_name FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS cont WHERE cont.Constraint_Name='{0}'", name)))
+                ExecuteQuery(string.Format("SELECT cont.constraint_name FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS cont WHERE cont.Constraint_Name='{0}' AND TABLE_NAME='{1}'", name, table)))
 			{
 				return reader.Read();
 			}
 		}
+
+        public override bool IndexExists(string table, string name)
+        {
+            using (IDataReader reader =
+                ExecuteQuery(string.Format("SELECT INDEX_NAME FROM INFORMATION_SCHEMA.INDEXES WHERE INDEX_Name='{0}' AND TABLE_NAME='{1}'", name, table)))
+            {
+                return reader.Read();
+            }
+        }
+
+        public override void RemoveIndex(string table, string name)
+        {
+            if (TableExists(table) && IndexExists(table, name))
+            {
+                ExecuteNonQuery(String.Format("DROP INDEX {0}.{1}", table, name));
+            }
+        }
+
+        public override bool TableExists(string table) {
+            string tableWithoutBrackets = this.RemoveBrackets(table);
+            string tableName = this.GetTableName(tableWithoutBrackets);
+            using (IDataReader reader = 
+                ExecuteQuery(String.Format("SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='{0}'", tableName))) {
+                return reader.Read();
+            }
+        }
+
+        protected new string GetSchemaName(string longTableName)
+        {
+            throw new MigrationException("SQL CE does not support database schemas.");
+        }
+
+        // This needs a little work. Only supports column properties NULL / NOT NULL
+        public override Column[] GetColumns(string table)
+        {
+			List<Column> columns = new List<Column>();
+			using (
+				IDataReader reader =
+					ExecuteQuery(
+						String.Format("select COLUMN_NAME, IS_NULLABLE, DATA_TYPE, COLUMN_HASDEFAULT, COLUMN_DEFAULT from information_schema.columns where table_name = '{0}'", table)))
+			{
+				while (reader.Read())
+				{
+					Column column = new Column(reader.GetString(0));
+                    bool isNullable = reader.GetString(1) == "YES";
+                    var dbType = Dialect.GetDbType(reader.GetString(2));
+                    bool hasDefault = reader.GetBoolean(3);
+                    var columnDefault = reader.GetValue(4);
+
+					column.ColumnProperty |= isNullable ? ColumnProperty.Null : ColumnProperty.NotNull;
+                    column.Type = dbType;
+                    if (hasDefault)
+                        column.DefaultValue = columnDefault;
+
+					columns.Add(column);
+				}
+			}
+
+			return columns.ToArray();
+        }
 
 		public override void RenameColumn(string tableName, string oldColumnName, string newColumnName)
 		{
@@ -54,9 +115,34 @@ namespace Migrator.Providers.SqlServer
 			{
 				Column column = GetColumnByName(tableName, oldColumnName);
 
-				AddColumn(tableName, new Column(newColumnName, column.Type, column.ColumnProperty, column.DefaultValue));
+                ColumnProperty? oldColumnProperty = null;
+                Column newColumn;
+                if (column.ColumnProperty.HasFlag(ColumnProperty.Null) || column.DefaultValue != null)
+                {
+                    // Column accepts nulls or has a default value. Go ahead and just create the new column matching the old
+                    newColumn = new Column(newColumnName, column.Type, column.ColumnProperty, column.DefaultValue);
+                }
+                else
+                {
+                    // Column doesn't accept nulls and no default value has been set. Create the new column so it allows nulls
+                    oldColumnProperty = column.ColumnProperty;
+                    var tmpColumnProperty = column.ColumnProperty;
+                    tmpColumnProperty |= ColumnProperty.Null; // Set flag
+                    tmpColumnProperty &= ~ColumnProperty.NotNull; // Unset flag
+
+                    newColumn = new Column(newColumnName, column.Type, tmpColumnProperty);
+                }
+
+				AddColumn(tableName, newColumn);
 				ExecuteNonQuery(string.Format("UPDATE {0} SET {1}={2}", tableName, newColumnName, oldColumnName));
 				RemoveColumn(tableName, oldColumnName);
+
+                if (oldColumnProperty.HasValue)
+                {
+                    // We modified the column to allow nulls before, so we update the column to match the old column now
+                    newColumn.ColumnProperty = oldColumnProperty.Value;
+                    ChangeColumn(tableName, newColumn);
+                }
 			}
 		}
 

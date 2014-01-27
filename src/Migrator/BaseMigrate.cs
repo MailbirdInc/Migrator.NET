@@ -52,7 +52,7 @@ namespace Migrator
 
         public abstract bool Continue(long targetVersion);
 
-        public abstract void Migrate(IMigration migration);
+        public abstract void Migrate(IMigration migration, System.Action<int> progressReporter);
         
         /// <summary>
         /// Finds the next migration available to be applied.  Only returns

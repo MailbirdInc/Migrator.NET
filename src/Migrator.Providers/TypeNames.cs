@@ -93,6 +93,21 @@ namespace Migrator.Providers
             return Replace(Get(typecode), size, precision, scale);
         }
 
+        /// <summary>
+        /// <para>Get the type from the specified database type name.</para>
+        /// <para>Note: This does not work perfectly, but it will do for most cases.</para>
+        /// </summary>
+        /// <param name="databaseTypeName">The name of the type.</param>
+        /// <returns>The <see cref="DbType"/>.</returns>
+        public DbType GetDbType(string databaseTypeName)
+        {
+            foreach (var kv in defaults)
+                if (kv.Value.Equals(databaseTypeName, StringComparison.OrdinalIgnoreCase))
+                    return kv.Key;
+
+            throw new ArgumentException("Dialect does not support type name." + databaseTypeName, "databaseTypeName");
+        }
+
         private static string Replace(string type, int size, int precision, int scale)
         {
             type = StringUtils.ReplaceOnce(type, LengthPlaceHolder, size.ToString());
