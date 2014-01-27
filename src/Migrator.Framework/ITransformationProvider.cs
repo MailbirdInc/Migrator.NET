@@ -109,6 +109,18 @@ namespace Migrator.Framework
         /// <summary>
         /// Add a foreign key constraint
         /// </summary>
+        /// <param name="name">The name of the foreign key. e.g. FK_TABLE_REF</param>
+        /// <param name="foreignTable">The table that the foreign key will be created in (eg. Table.FK_id)</param>
+        /// <param name="foreignColumns">The columns that are the foreign keys (eg. FK_id)</param>
+        /// <param name="primaryTable">The table that holds the primary keys (eg. Table.PK_id)</param>
+        /// <param name="primaryColumns">The columns that are the primary keys (eg. PK_id)</param>
+        /// <param name="updateConstraint">Update constraint parameters</param>
+        /// <param name="deleteConstraint">Delete constraint parameters</param>
+        void AddForeignKey(string name, string foreignTable, string[] foreignColumns, string primaryTable, string[] primaryColumns, ForeignKeyConstraint updateConstraint, ForeignKeyConstraint deleteConstraint);
+
+        /// <summary>
+        /// Add a foreign key constraint
+        /// </summary>
         /// 
         /// <param name="name">The name of the foreign key. e.g. FK_TABLE_REF</param>
         /// <param name="foreignTable">The table that the foreign key will be created in (eg. Table.FK_id)</param>
@@ -127,6 +139,18 @@ namespace Migrator.Framework
         /// <param name="primaryColumn">The column that is the primary key (eg. PK_id)</param>
         /// <param name="constraint">Constraint parameters</param>
         void AddForeignKey(string name, string foreignTable, string foreignColumn, string primaryTable, string primaryColumn, ForeignKeyConstraint constraint);
+
+        /// <summary>
+        /// Add a foreign key constraint
+        /// </summary>
+        /// <param name="name">The name of the foreign key. e.g. FK_TABLE_REF</param>
+        /// <param name="foreignTable">The table that the foreign key will be created in (eg. Table.FK_id)</param>
+        /// <param name="foreignColumn">The column that is the foreign key (eg. FK_id)</param>
+        /// <param name="primaryTable">The table that holds the primary key (eg. Table.PK_id)</param>
+        /// <param name="primaryColumn">The column that is the primary key (eg. PK_id)</param>
+        /// <param name="updateConstraint">Update constraint parameters</param>
+        /// <param name="deleteConstraint">Delete constraint parameters</param>
+        void AddForeignKey(string name, string foreignTable, string foreignColumn, string primaryTable, string primaryColumn, ForeignKeyConstraint updateConstraint, ForeignKeyConstraint deleteConstraint);
 
         /// <summary>
         /// Add a foreign key constraint when you don't care about the name of the constraint.

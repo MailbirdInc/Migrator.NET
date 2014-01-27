@@ -176,10 +176,21 @@ namespace Migrator.Providers
             // No Op
         }
 
+        public void AddForeignKey(string name, string primaryTable, string primaryColumn, string refTable, string refColumn, ForeignKeyConstraint updateConstraint, ForeignKeyConstraint deleteConstraint)
+        {
+            // No Op
+        }
+
         public void AddForeignKey(string name, string primaryTable, string[] primaryColumns, string refTable,
                                           string[] refColumns, ForeignKeyConstraint constraint)
         {
            // No Op
+        }
+
+        public void AddForeignKey(string name, string primaryTable, string[] primaryColumns, string refTable,
+                                          string[] refColumns, ForeignKeyConstraint updateConstraint, ForeignKeyConstraint deleteConstraint)
+        {
+            // No Op
         }
         
         public void AddUniqueConstraint(string name, string table, params string[] columns)

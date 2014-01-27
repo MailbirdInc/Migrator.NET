@@ -536,22 +536,35 @@ namespace Migrator.Providers
 						  constraint);
 		}
 
+        public virtual void AddForeignKey(string name, string primaryTable, string primaryColumn, string refTable, string refColumn, ForeignKeyConstraint updateConstraint, ForeignKeyConstraint deleteConstraint)
+        {
+            AddForeignKey(name, primaryTable, new string[] { primaryColumn }, refTable, new string[] { refColumn },
+                          updateConstraint, deleteConstraint);
+        }
+
 		public virtual void AddForeignKey(string name, string primaryTable, string[] primaryColumns, string refTable,
                                           string[] refColumns, ForeignKeyConstraint constraint)
 		{
-			if (ConstraintExists(primaryTable, name))
-			{
-				Logger.Warn("Constraint {0} already exists", name);
-				return;
-			}
-
-			string constraintResolved = constraintMapper.SqlForConstraint(constraint);
-			ExecuteNonQuery(
-				String.Format(
-					"ALTER TABLE {0} ADD CONSTRAINT {1} FOREIGN KEY ({2}) REFERENCES {3} ({4}) ON UPDATE {5} ON DELETE {6}",
-					primaryTable, name, String.Join(",", primaryColumns),
-					refTable, String.Join(",", refColumns), constraintResolved, constraintResolved));
+            AddForeignKey(name, primaryTable, primaryColumns, refTable, refColumns, constraint, constraint);
 		}
+
+        public virtual void AddForeignKey(string name, string primaryTable, string[] primaryColumns, string refTable,
+                                  string[] refColumns, ForeignKeyConstraint updateConstraint, ForeignKeyConstraint deleteConstraint)
+        {
+            if (ConstraintExists(primaryTable, name))
+            {
+                Logger.Warn("Constraint {0} already exists", name);
+                return;
+            }
+
+            string updateConstraintResolved = constraintMapper.SqlForConstraint(updateConstraint);
+            string deleteConstraintResolved = constraintMapper.SqlForConstraint(deleteConstraint);
+            ExecuteNonQuery(
+                String.Format(
+                    "ALTER TABLE {0} ADD CONSTRAINT {1} FOREIGN KEY ({2}) REFERENCES {3} ({4}) ON UPDATE {5} ON DELETE {6}",
+                    primaryTable, name, String.Join(",", primaryColumns),
+                    refTable, String.Join(",", refColumns), updateConstraintResolved, deleteConstraintResolved));
+        }
 
 		/// <summary>
 		/// Determines if a constraint exists.
@@ -873,5 +886,5 @@ namespace Migrator.Providers
                 _connection.Close();
             }
         }
-	}
+    }
 }

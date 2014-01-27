@@ -48,7 +48,7 @@ namespace Migrator.Providers.SQLite
             AddTable(name, engine, columnsAndIndexes + (compoundPrimaryKey ? string.Format(", PRIMARY KEY ({0})", string.Join(",", pks)) : "")); // If this primary key string changes, fix the 'ParseSqlColumnDefs' method below to reflect it
         }
 
-        public override void AddForeignKey(string name, string primaryTable, string[] primaryColumns, string refTable, string[] refColumns, ForeignKeyConstraint constraint)
+        public override void AddForeignKey(string name, string primaryTable, string[] primaryColumns, string refTable, string[] refColumns, ForeignKeyConstraint updateConstraint, ForeignKeyConstraint deleteConstraint)
         {
             if (primaryColumns.Length > 1 || refColumns.Length > 1)
             {
@@ -60,12 +60,13 @@ namespace Migrator.Providers.SQLite
             string compositeDefSql;
             string[] origColDefs = GetColumnDefs(primaryTable, out compositeDefSql);
             List<string> colDefs = new List<string>();
-            var constraintResolved = constraintMapper.SqlForConstraint(constraint);
+            var updateConstraintStr = constraintMapper.SqlForConstraint(updateConstraint);
+            var deleteConstraintStr = constraintMapper.SqlForConstraint(deleteConstraint);
             foreach (string origdef in origColDefs)
             {
                 // Is this column one we should add a foreign key to?
                 if (ColumnMatch(primaryColumns[0], origdef))
-                    colDefs.Add(origdef + string.Format(" CONSTRAINT {0} REFERENCES {1}({2}) ON UPDATE {3} ON DELETE {3}", name, refTable, refColumns[0], constraintResolved));
+                    colDefs.Add(origdef + string.Format(" CONSTRAINT {0} REFERENCES {1}({2}) ON UPDATE {3} ON DELETE {4}", name, refTable, refColumns[0], updateConstraintStr, deleteConstraintStr));
                 else
                     colDefs.Add(origdef);
             }
