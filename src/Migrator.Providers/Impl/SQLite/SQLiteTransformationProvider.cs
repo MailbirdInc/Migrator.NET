@@ -94,10 +94,47 @@ namespace Migrator.Providers.SQLite
                 ExecuteNonQuery(String.Format("ALTER TABLE {0}_temp RENAME TO {0}", primaryTable));
             //});
         }
-        
-        public override void RemoveForeignKey(string name, string table)
+
+        public override void RemoveForeignKey(string table, string name)
         {
-            throw new NotImplementedException();
+            // Generate new table definition with foreign key
+            string compositeDefSql;
+            string[] origColDefs = GetColumnDefs(table, out compositeDefSql);
+            List<string> colDefs = new List<string>();
+
+            foreach (string origdef in origColDefs)
+            {
+                // Strip the constraint part of the column definition
+                var constraintIndex = origdef.IndexOf(string.Format(" CONSTRAINT {0}", name), StringComparison.OrdinalIgnoreCase);
+                if (constraintIndex > -1)
+                    colDefs.Add(origdef.Substring(0, constraintIndex));
+                else
+                    colDefs.Add(origdef);
+            }
+
+            string[] newColDefs = colDefs.ToArray();
+            string colDefsSql = String.Join(",", newColDefs);
+
+            string[] colNames = ParseSqlForColumnNames(newColDefs);
+            string colNamesSql = String.Join(",", colNames);
+
+            // Create new table with temporary name
+            AddTable(table + "_temp", null, GetSqlForAddTable(table, colDefsSql, compositeDefSql));
+
+            // Copy data from original table to temporary table
+            ExecuteNonQuery(String.Format("INSERT INTO {0}_temp SELECT {1} FROM {0}", table, colNamesSql));
+
+            // Add indexes from original table
+            MoveIndexesFromOriginalTable(table, table + "_temp");
+
+            //PerformForeignKeyAffectedAction(() =>
+            //{
+            // Remove original table
+            RemoveTable(table);
+
+            // Rename temporary table to original table name
+            ExecuteNonQuery(String.Format("ALTER TABLE {0}_temp RENAME TO {0}", table));
+            //});
         }
 
         private string GetSqlForAddTable(string tableName, string colDefsSql, string compositeDefSql)
