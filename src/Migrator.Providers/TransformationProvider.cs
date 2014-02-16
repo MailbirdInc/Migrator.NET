@@ -798,7 +798,7 @@ namespace Migrator.Providers
         /// Marks a Migration version number as having been applied
         /// </summary>
         /// <param name="version">The version number of the migration that was applied</param>
-		public void MigrationApplied(long version)
+		public virtual void MigrationApplied(long version)
 		{
 			CreateSchemaInfoTable();
 			Insert("SchemaInfo",new string[]{"version"},new string[]{version.ToString()});

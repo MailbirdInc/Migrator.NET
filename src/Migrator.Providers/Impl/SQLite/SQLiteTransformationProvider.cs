@@ -4,6 +4,7 @@ using System.Data;
 using Migrator.Framework;
 using ForeignKeyConstraint=Migrator.Framework.ForeignKeyConstraint;
 using SqliteConnection=System.Data.SQLite.SQLiteConnection;
+using System.Diagnostics;
 
 namespace Migrator.Providers.SQLite
 {
@@ -17,9 +18,14 @@ namespace Migrator.Providers.SQLite
         public SQLiteTransformationProvider(Dialect dialect, string connectionString)
             : base(dialect, connectionString)
         {
-            _connection = new SqliteConnection(_connectionString);
+            _connection = GetConnection();
             _connection.ConnectionString = _connectionString;
             _connection.Open();
+        }
+
+        private SqliteConnection GetConnection()
+        {
+            return new SqliteConnection(_connectionString);
         }
 
         public override void AddTable(string name, string engine, params Column[] columns)
@@ -492,6 +498,48 @@ namespace Migrator.Providers.SQLite
         public bool ColumnMatch(string column, string columnDef)
         {
             return columnDef.StartsWith(column + " ") || columnDef.StartsWith(_dialect.Quote(column));
+        }
+
+        public override void MigrationApplied(long version)
+        {
+            // If we're debugging, check to make sure the migration didn't cause foreign key violations.
+            // The reason we only check when debugging is that the check can take a few seconds, and could also reveal earlier violations that might not cause issues for users
+            if (Debugger.IsAttached)
+            {
+                var hasViolations = false;
+                var cmdText = "PRAGMA foreign_key_check";
+
+                if (_connection.State == ConnectionState.Open)
+                {
+                    // Current connection is open, so use it to check for violations
+                    hasViolations = ExecuteQuery(cmdText).Read();
+                }
+                else
+                {
+                    // Current connection is closed, so create a new one to check for violations
+                    using (var connection = GetConnection())
+                    {
+                        connection.Open();
+                        try
+                        {
+                            using (var cmd = connection.CreateCommand())
+                            {
+                                cmd.CommandText = cmdText;
+                                hasViolations = cmd.ExecuteReader().HasRows;
+                            }
+                        }
+                        finally
+                        {
+                            connection.Close();
+                        }
+                    }
+                }
+
+                if (hasViolations)
+                    throw new Exception("Foreign key violations detected.");
+            }
+
+            base.MigrationApplied(version);
         }
     }
 }
