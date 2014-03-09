@@ -15,6 +15,7 @@ namespace Migrator.Providers.SQLite
     public class SQLiteTransformationProvider : TransformationProvider
     {
         private readonly ForeignKeyConstraintMapper constraintMapper = new ForeignKeyConstraintMapper();
+        private readonly string _wholeWordPattern = @"\b{0}\b";
 
         public SQLiteTransformationProvider(Dialect dialect, string connectionString)
             : base(dialect, connectionString)
@@ -150,40 +151,38 @@ namespace Migrator.Providers.SQLite
             return compositeDefSql != null ? colDefsSql.TrimEnd(')') + "," + compositeDefSql : colDefsSql;
         }
 
-        private void MoveIndexesAndTriggersFromOriginalTable(string origTable, string newTable)
+        private void MoveIndexesAndTriggersFromOriginalTable(string origTable, string newTable, string oldColumn = null, string newColumn = null)
         {
-            MoveIndexesFromOriginalTable(origTable, newTable);
-            MoveTriggersFromOriginalTable(origTable, newTable);
+            MoveSpecialFromOriginalTable("Index", origTable, newTable, oldColumn, newColumn);
+            MoveSpecialFromOriginalTable("Trigger", origTable, newTable, oldColumn, newColumn);
         }
 
-        private void MoveIndexesFromOriginalTable(string origTable, string newTable)
+        private void MoveSpecialFromOriginalTable(string type, string origTable, string newTable, string oldColumn, string newColumn)
         {
-            var indexSqls = GetCreateIndexSqlStrings(origTable);
-            foreach (var indexSql in indexSqls)
+            foreach (var special in GetCreateSpecialDefs(origTable, type))
             {
-                var origTableStart = indexSql.IndexOf(" ON ", StringComparison.OrdinalIgnoreCase) + 4;
-                var origTableEnd = indexSql.IndexOf("(", origTableStart);
+                // First remove original special, because names have to be unique
+                ExecuteNonQuery(string.Format("DROP {0} {1}", type.ToUpperInvariant(), special.Item1));
 
-                // First remove original index, because names have to be unique
-                var createIndexDef = " INDEX ";
-                var indexNameStart = indexSql.IndexOf(createIndexDef, StringComparison.OrdinalIgnoreCase) + createIndexDef.Length;
-                ExecuteNonQuery("DROP INDEX " + indexSql.Substring(indexNameStart, (origTableStart - 4) - indexNameStart));
+                // Create special on new table
+                var createSql = Regex.Replace(special.Item2, string.Format(_wholeWordPattern, origTable), newTable, RegexOptions.IgnoreCase);
 
-                // Create index on new table
-                ExecuteNonQuery(indexSql.Substring(0, origTableStart) + newTable + " " + indexSql.Substring(origTableEnd));
-            }
-        }
+                Regex oldColumnRegex = new Regex(string.Format(_wholeWordPattern, oldColumn), RegexOptions.IgnoreCase);
+                if (oldColumn != null && oldColumnRegex.IsMatch(createSql))
+                {
+                    // Make sure the special's name is following our conventions, so we can rename it automatically
+                    var newIndexNameRegex = new Regex(string.Format(@"_{0}\b", oldColumn), RegexOptions.IgnoreCase);
+                    if (!newIndexNameRegex.IsMatch(special.Item1))
+                        throw new InvalidOperationException(string.Format("{0} name not following conventions. Remove and re-add index manually prior to renaming column instead.", type));
 
-        private void MoveTriggersFromOriginalTable(string origTable, string newTable)
-        {
-            var triggerSqls = GetCreateTriggerDefs(origTable);
-            foreach (var trigger in triggerSqls)
-            {
-                // First remove original trigger, because names have to be unique
-                ExecuteNonQuery("DROP TRIGGER " + trigger.Item1);
+                    // Rename special name to new column name
+                    createSql = Regex.Replace(createSql, string.Format(_wholeWordPattern, special.Item1), newIndexNameRegex.Replace(special.Item1, "_" + newColumn), RegexOptions.IgnoreCase);
+                    
+                    // Rename any references to the old column
+                    createSql = oldColumnRegex.Replace(createSql, newColumn);
+                }
 
-                // Create trigger on new table
-                ExecuteNonQuery(Regex.Replace(trigger.Item2, string.Format("(ON\\s+[\"\\[]?){0}([\"\\]]?)", origTable), string.Format("$1{0}$2", newTable), RegexOptions.IgnoreCase));
+                ExecuteNonQuery(createSql);
             }
         }
 
@@ -241,9 +240,12 @@ namespace Migrator.Providers.SQLite
             string[] colNames = ParseSqlForColumnNames(newColDefs);
             string colNamesSql = String.Join(",", colNames);
 
-            AddTable(table + "_temp", null, GetSqlForAddTable(table, colDefsSql, compositeDefSql).Replace(oldColumn, newColumn));
-            ExecuteNonQuery(String.Format("INSERT INTO {0}_temp SELECT {1} FROM {0}", table, colNamesSql.Replace(oldColumn, oldColumn + " AS " + newColumn)));
-            MoveIndexesAndTriggersFromOriginalTable(table, table + "_temp");
+            var regex = new Regex(string.Format(_wholeWordPattern, oldColumn), RegexOptions.IgnoreCase); // Doing a normal string.Replace would replace partial matches as well
+
+            var addTableSql = regex.Replace(GetSqlForAddTable(table, colDefsSql, compositeDefSql), newColumn);
+            AddTable(table + "_temp", null, addTableSql);
+            ExecuteNonQuery(String.Format("INSERT INTO {0}_temp SELECT {1} FROM {0}", table, regex.Replace(colNamesSql, oldColumn + " AS " + newColumn)));
+            MoveIndexesAndTriggersFromOriginalTable(table, table + "_temp", oldColumn, newColumn);
             //PerformForeignKeyAffectedAction(() =>
             //{
                 RemoveTable(table);
@@ -395,27 +397,16 @@ namespace Migrator.Providers.SQLite
             return sqldef;    
         }
 
-        private string[] GetCreateIndexSqlStrings(string table)
-        {
-            var sqlStrings = new List<string>();
-
-            using (IDataReader reader = ExecuteQuery(String.Format("SELECT sql FROM sqlite_master WHERE type='index' AND sql NOT NULL AND tbl_name='{0}'", table)))
-                while (reader.Read())
-                    sqlStrings.Add((string)reader[0]);
-
-            return sqlStrings.ToArray();
-        }
-
-        private Tuple<string, string>[] GetCreateTriggerDefs(string table)
+        private Tuple<string, string>[] GetCreateSpecialDefs(string table, string type)
         {
             var sqlStrings = new List<Tuple<string, string>>();
 
-            using (IDataReader reader = ExecuteQuery(String.Format("SELECT name, sql FROM sqlite_master WHERE type='trigger' AND sql NOT NULL AND tbl_name='{0}'", table)))
+            using (IDataReader reader = ExecuteQuery(String.Format("SELECT name, sql FROM sqlite_master WHERE type='{0}' AND sql NOT NULL AND tbl_name='{1}'", type.ToLowerInvariant(), table)))
                 while (reader.Read())
                     sqlStrings.Add(new Tuple<string, string>((string)reader["name"], (string)reader["sql"]));
 
             return sqlStrings.ToArray();
-        }
+        } 
 
         private string[] GetColumnNames(string table)
         {
