@@ -16,6 +16,8 @@ namespace Migrator.Providers.SQLite
     {
         private readonly ForeignKeyConstraintMapper constraintMapper = new ForeignKeyConstraintMapper();
         private readonly string _wholeWordPattern = @"\b{0}\b";
+        private const string _INDEX_TYPE = "Index";
+        private const string _TRIGGER_TYPE = "Trigger";
 
         public SQLiteTransformationProvider(Dialect dialect, string connectionString)
             : base(dialect, connectionString)
@@ -153,8 +155,8 @@ namespace Migrator.Providers.SQLite
 
         private void MoveIndexesAndTriggersFromOriginalTable(string origTable, string newTable, string oldColumn = null, string newColumn = null)
         {
-            MoveSpecialFromOriginalTable("Index", origTable, newTable, oldColumn, newColumn);
-            MoveSpecialFromOriginalTable("Trigger", origTable, newTable, oldColumn, newColumn);
+            MoveSpecialFromOriginalTable(_INDEX_TYPE, origTable, newTable, oldColumn, newColumn);
+            MoveSpecialFromOriginalTable(_TRIGGER_TYPE, origTable, newTable, oldColumn, newColumn);
         }
 
         private void MoveSpecialFromOriginalTable(string type, string origTable, string newTable, string oldColumn, string newColumn)
@@ -164,8 +166,11 @@ namespace Migrator.Providers.SQLite
                 // First remove original special, because names have to be unique
                 ExecuteNonQuery(string.Format("DROP {0} {1}", type.ToUpperInvariant(), special.Item1));
 
-                // Create special on new table
-                var createSql = Regex.Replace(special.Item2, string.Format(_wholeWordPattern, origTable), newTable, RegexOptions.IgnoreCase);
+                // Create special on new table, replacing the table name.
+                // Note for triggers we create on temp tables we only replace the name of the table it's created on (the first occurance), not the name if defined in the actual trigger, 
+                // since that won't auto-rename when we rename the table afterwards.
+                var replaceRegex = new Regex(string.Format(_wholeWordPattern, origTable, RegexOptions.IgnoreCase));
+                var createSql = replaceRegex.Replace(special.Item2, newTable, newTable.EndsWith("_temp") && type == _TRIGGER_TYPE ? 1 : int.MaxValue);
 
                 Regex oldColumnRegex = new Regex(string.Format(_wholeWordPattern, oldColumn), RegexOptions.IgnoreCase);
                 if (oldColumn != null && oldColumnRegex.IsMatch(createSql))
