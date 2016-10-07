@@ -6,6 +6,7 @@ using ForeignKeyConstraint=Migrator.Framework.ForeignKeyConstraint;
 using SqliteConnection=System.Data.SQLite.SQLiteConnection;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using System.Linq;
 
 namespace Migrator.Providers.SQLite
 {
@@ -522,7 +523,7 @@ namespace Migrator.Providers.SQLite
 
         private bool ColumnMatch(string column, string columnDef)
         {
-            return columnDef.StartsWith(column + " ") || columnDef.StartsWith(_dialect.Quote(column));
+            return columnDef.StartsWith(column + " ") || _dialect.QuoteTemplates.Any(t => columnDef.StartsWith(string.Format(t, column)));
         }
 
         public override void MigrationApplied(long version)

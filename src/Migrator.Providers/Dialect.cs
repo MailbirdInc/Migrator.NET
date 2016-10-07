@@ -167,12 +167,12 @@ namespace Migrator.Providers
         
         public virtual string Quote(string value)
         {
-            return String.Format(QuoteTemplate, value);
+            return String.Format(QuoteTemplates[0], value);
         }
         
-        public virtual string QuoteTemplate
+        public virtual string[] QuoteTemplates
         {
-            get { return "\"{0}\""; }
+            get { return new string[] { "\"{0}\"" }; }
         }
         
         public virtual string Default(object defaultValue)

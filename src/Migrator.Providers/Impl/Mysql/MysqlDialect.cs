@@ -53,9 +53,9 @@ namespace Migrator.Providers.Mysql
 			return new MySqlTransformationProvider(dialect, connectionString);
 		}
 
-        public override string QuoteTemplate
+        public override string[] QuoteTemplates
         {
-            get { return "`{0}`"; }
+            get { return new string[] { "`{0}`" }; }
         }
 
         public override string Default(object defaultValue)

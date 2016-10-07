@@ -50,5 +50,10 @@ namespace Migrator.Providers.SQLite
         {
             get { return true; }
         }
+
+        public override string[] QuoteTemplates
+        {
+            get { return new string[] { "\"{0}\"", "[{0}]" }; }
+        }
     }
 }
