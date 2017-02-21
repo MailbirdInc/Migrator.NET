@@ -75,11 +75,11 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\src\Migrator.Framework\Migrator.Framework-vs2010.csproj">
+    <ProjectReference Include="..\Migrator.Framework\Migrator.Framework-vs2010.csproj">
       <Project>{5270f048-e580-486c-b14c-e5b9f6e539d4}</Project>
       <Name>Migrator.Framework-vs2010</Name>
     </ProjectReference>
-    <ProjectReference Include="..\src\Migrator.Providers\Migrator.Providers-vs2010.csproj">
+    <ProjectReference Include="..\Migrator.Providers\Migrator.Providers-vs2010.csproj">
       <Project>{d58c68e4-d789-40f7-9078-c9f587d4363c}</Project>
       <Name>Migrator.Providers-vs2010</Name>
     </ProjectReference>

@@ -21,9 +21,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Migrator.Framework-vs2010",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Migrator.Providers-vs2010", "src\Migrator.Providers\Migrator.Providers-vs2010.csproj", "{D58C68E4-D789-40F7-9078-C9F587D4363C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Migrator.Providers.Impl", "Migrator.Providers.Impl\Migrator.Providers.Impl.csproj", "{0F145FF9-E0BA-466A-9C68-0D99A7D49107}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Migrator.Providers.Impl", "src\Migrator.Providers.Impl\Migrator.Providers.Impl.csproj", "{0F145FF9-E0BA-466A-9C68-0D99A7D49107}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Migrator.Providers.Mono.Sqlite", "Migrator.Providers.Mono.Sqlite\Migrator.Providers.Mono.Sqlite.csproj", "{056D96BB-0913-4BC9-9A0F-E76DB844D376}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Migrator.Providers.Mono.Sqlite", "src\Migrator.Providers.Mono.Sqlite\Migrator.Providers.Mono.Sqlite.csproj", "{056D96BB-0913-4BC9-9A0F-E76DB844D376}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
