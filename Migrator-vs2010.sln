@@ -1,6 +1,8 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.26206.0
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{9844714F-717A-4C16-97A9-9995BB1B4A8B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Extras", "Extras", "{02B014BC-CC35-466F-A2F4-C5B5AC830653}"
@@ -18,6 +20,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Migrator.Framework-vs2010", "src\Migrator.Framework\Migrator.Framework-vs2010.csproj", "{5270F048-E580-486C-B14C-E5B9F6E539D4}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Migrator.Providers-vs2010", "src\Migrator.Providers\Migrator.Providers-vs2010.csproj", "{D58C68E4-D789-40F7-9078-C9F587D4363C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Migrator.Providers.Impl", "Migrator.Providers.Impl\Migrator.Providers.Impl.csproj", "{0F145FF9-E0BA-466A-9C68-0D99A7D49107}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Migrator.Providers.Mono.Sqlite", "Migrator.Providers.Mono.Sqlite\Migrator.Providers.Mono.Sqlite.csproj", "{056D96BB-0913-4BC9-9A0F-E76DB844D376}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -51,6 +57,22 @@ Global
 		{D58C68E4-D789-40F7-9078-C9F587D4363C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{D58C68E4-D789-40F7-9078-C9F587D4363C}.Release|x86.ActiveCfg = Release|x86
 		{D58C68E4-D789-40F7-9078-C9F587D4363C}.Release|x86.Build.0 = Release|x86
+		{0F145FF9-E0BA-466A-9C68-0D99A7D49107}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0F145FF9-E0BA-466A-9C68-0D99A7D49107}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0F145FF9-E0BA-466A-9C68-0D99A7D49107}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{0F145FF9-E0BA-466A-9C68-0D99A7D49107}.Debug|x86.Build.0 = Debug|Any CPU
+		{0F145FF9-E0BA-466A-9C68-0D99A7D49107}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0F145FF9-E0BA-466A-9C68-0D99A7D49107}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0F145FF9-E0BA-466A-9C68-0D99A7D49107}.Release|x86.ActiveCfg = Release|Any CPU
+		{0F145FF9-E0BA-466A-9C68-0D99A7D49107}.Release|x86.Build.0 = Release|Any CPU
+		{056D96BB-0913-4BC9-9A0F-E76DB844D376}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{056D96BB-0913-4BC9-9A0F-E76DB844D376}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{056D96BB-0913-4BC9-9A0F-E76DB844D376}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{056D96BB-0913-4BC9-9A0F-E76DB844D376}.Debug|x86.Build.0 = Debug|Any CPU
+		{056D96BB-0913-4BC9-9A0F-E76DB844D376}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{056D96BB-0913-4BC9-9A0F-E76DB844D376}.Release|Any CPU.Build.0 = Release|Any CPU
+		{056D96BB-0913-4BC9-9A0F-E76DB844D376}.Release|x86.ActiveCfg = Release|Any CPU
+		{056D96BB-0913-4BC9-9A0F-E76DB844D376}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -59,5 +81,7 @@ Global
 		{1FEE70A4-AAD7-4C60-BE60-3F7DC03A8C4D} = {9844714F-717A-4C16-97A9-9995BB1B4A8B}
 		{5270F048-E580-486C-B14C-E5B9F6E539D4} = {9844714F-717A-4C16-97A9-9995BB1B4A8B}
 		{D58C68E4-D789-40F7-9078-C9F587D4363C} = {9844714F-717A-4C16-97A9-9995BB1B4A8B}
+		{0F145FF9-E0BA-466A-9C68-0D99A7D49107} = {9844714F-717A-4C16-97A9-9995BB1B4A8B}
+		{056D96BB-0913-4BC9-9A0F-E76DB844D376} = {9844714F-717A-4C16-97A9-9995BB1B4A8B}
 	EndGlobalSection
 EndGlobal
