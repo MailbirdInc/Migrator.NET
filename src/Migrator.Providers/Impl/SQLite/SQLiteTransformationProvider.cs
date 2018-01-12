@@ -250,7 +250,7 @@ namespace Migrator.Providers.SQLite
 
             var addTableSql = regex.Replace(GetSqlForAddTable(table, colDefsSql, compositeDefSql), newColumn);
             AddTable(table + "_temp", null, addTableSql);
-            ExecuteNonQuery(String.Format("INSERT INTO {0}_temp SELECT {1} FROM {0}", table, regex.Replace(colNamesSql, oldColumn + " AS " + newColumn)));
+            ExecuteNonQuery(String.Format("INSERT INTO {0}_temp SELECT {1} FROM {0}", table, colNamesSql)); // This was replacing {1} with regex.Replace(colNamesSql, oldColumn + " AS " + newColumn) but it would place AS between any quotes when it should be outside. But from what I can tell SQLite doesn't need AS at all so I removed it
             MoveIndexesAndTriggersFromOriginalTable(table, table + "_temp", oldColumn, newColumn);
             //PerformForeignKeyAffectedAction(() =>
             //{
@@ -371,7 +371,16 @@ namespace Migrator.Providers.SQLite
 
             return tables.ToArray();
         }
-        
+
+        public override Column GetColumnByName(string table, string columnName)
+        {
+            return Array.Find(GetColumns(table),
+                delegate (Column column)
+                {
+                    return ColumnNameMatch(columnName, column.Name);
+                });
+        }
+
         public override Column[] GetColumns(string table)
         {       
             List<Column> columns = new List<Column>();
@@ -521,9 +530,16 @@ namespace Migrator.Providers.SQLite
             return cols;
         }
 
-        private bool ColumnMatch(string column, string columnDef)
+        private bool ColumnNameMatch(string columnName, string columnDefName)
         {
-            return columnDef.StartsWith(column + " ") || _dialect.QuoteTemplates.Any(t => columnDef.StartsWith(string.Format(t, column)));
+            return ColumnMatch(columnName, columnDefName + " "); // Adding a space because we check for that in the method. Slightly hack'ish
+        }
+
+        private bool ColumnMatch(string columnName, string columnDef)
+        {
+            // Note when comparing the names outright we add a space because we check for that above when doing a name match.
+            // Since the quotes surround the name otherwise we don't need to include that when matching with quotes
+            return columnDef.StartsWith(columnName + " ") || _dialect.QuoteTemplates.Any(t => columnDef.StartsWith(string.Format(t, columnName)));
         }
 
         public override void MigrationApplied(long version)
