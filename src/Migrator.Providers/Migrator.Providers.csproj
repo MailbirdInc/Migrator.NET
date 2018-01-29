@@ -117,25 +117,17 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ColumnPropertiesMapper.cs" />
-    <Compile Include="Dialect.cs" />
-    <Compile Include="ForeignKeyConstraintMapper.cs" />
     <Compile Include="Impl\Mysql\MysqlDialect.cs" />
     <Compile Include="Impl\Mysql\MySqlTransformationProvider.cs" />
     <Compile Include="Impl\SqlServer\SqlServer2005Dialect.cs" />
     <Compile Include="Impl\SqlServer\SqlServerCeDialect.cs" />
     <Compile Include="Impl\SqlServer\SqlServerCeTransformationProvider.cs" />
-    <Compile Include="NoOpTransformationProvider.cs" />
     <Compile Include="Impl\Oracle\OracleDialect.cs" />
     <Compile Include="Impl\Oracle\OracleTransformationProvider.cs" />
     <Compile Include="Impl\PostgreSQL\PostgreSQLDialect.cs" />
     <Compile Include="Impl\PostgreSQL\PostgreSQLTransformationProvider.cs" />
-    <Compile Include="Impl\SQLite\SQLiteDialect.cs" />
-    <Compile Include="Impl\SQLite\SQLiteTransformationProvider.cs" />
     <Compile Include="Impl\SqlServer\SqlServerDialect.cs" />
     <Compile Include="Impl\SqlServer\SqlServerTransformationProvider.cs" />
-    <Compile Include="TransformationProvider.cs" />
-    <Compile Include="TypeNames.cs" />
   </ItemGroup>
   <ItemGroup>
     <Service Include="{B4F97281-0DBD-4835-9ED8-7DFB966E87FF}" />
@@ -176,6 +168,10 @@
       <Name>Migrator.Framework</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Impl\SQLite\" />
+  </ItemGroup>
+  <Import Project="..\Migrator.Providers.Shared\Migrator.Providers.Shared.projitems" Label="Shared" />
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

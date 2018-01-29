@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DefineConstants>TRACE;DEBUG;MOBILE;NETSTANDARD2_0</DefineConstants>
+  </PropertyGroup>
+
+  <Import Project="..\Migrator.Providers.Shared\Migrator.Providers.Shared.projitems" Label="Shared" />
+
+  <ItemGroup>
+    <PackageReference Include="Mono.Data.Sqlite.Portable" Version="1.0.3.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Migrator.Framework\Migrator.Framework.csproj" />
+  </ItemGroup>
+
+</Project>

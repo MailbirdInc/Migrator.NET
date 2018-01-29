@@ -3,7 +3,11 @@ using System.Collections.Generic;
 using System.Data;
 using Migrator.Framework;
 using ForeignKeyConstraint=Migrator.Framework.ForeignKeyConstraint;
-using SqliteConnection=System.Data.SQLite.SQLiteConnection;
+#if MOBILE
+using SqliteConnection = Mono.Data.Sqlite.SqliteConnection;
+#else
+using SqliteConnection =System.Data.SQLite.SQLiteConnection;
+#endif
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using System.Linq;

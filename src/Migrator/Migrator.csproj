@@ -114,15 +114,7 @@
     <Compile Include="..\config\AssemblyInfo.cs">
       <Link>AssemblyInfo.cs</Link>
     </Compile>
-    <Compile Include="BaseMigrate.cs" />
     <Compile Include="Compile\ScriptEngine.cs" />
-    <Compile Include="DuplicatedVersionException.cs" />
-    <Compile Include="IrreversibleMigrationException.cs" />
-    <Compile Include="MigrateAnywhere.cs" />
-    <Compile Include="MigrationComparer.cs" />
-    <Compile Include="MigrationLoader.cs" />
-    <Compile Include="Migrator.cs" />
-    <Compile Include="ProviderFactory.cs" />
     <Compile Include="Tools\SchemaDumper.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -162,5 +154,6 @@
       <Name>Migrator.Providers</Name>
     </ProjectReference>
   </ItemGroup>
+  <Import Project="..\Migrator.Shared\Migrator.Shared.projitems" Label="Shared" />
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>
