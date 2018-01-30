@@ -5,7 +5,11 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DefineConstants>TRACE;DEBUG;MOBILE;NETSTANDARD2_0</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;MOBILE</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DefineConstants>TRACE;MOBILE</DefineConstants>
   </PropertyGroup>
 
   <Import Project="..\Migrator.Providers.Shared\Migrator.Providers.Shared.projitems" Label="Shared" />

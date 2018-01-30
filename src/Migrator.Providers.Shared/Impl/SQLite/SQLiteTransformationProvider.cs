@@ -6,7 +6,7 @@ using ForeignKeyConstraint=Migrator.Framework.ForeignKeyConstraint;
 #if MOBILE
 using SqliteConnection = Mono.Data.Sqlite.SqliteConnection;
 #else
-using SqliteConnection =System.Data.SQLite.SQLiteConnection;
+using SqliteConnection = System.Data.SQLite.SQLiteConnection;
 #endif
 using System.Diagnostics;
 using System.Text.RegularExpressions;
@@ -17,7 +17,7 @@ namespace Migrator.Providers.SQLite
     /// <summary>
     /// Summary description for SQLiteTransformationProvider.
     /// </summary>
-    public class SQLiteTransformationProvider : TransformationProvider
+    public partial class SQLiteTransformationProvider : TransformationProvider
     {
         private readonly ForeignKeyConstraintMapper constraintMapper = new ForeignKeyConstraintMapper();
         private readonly string _wholeWordPattern = @"\b{0}\b";
