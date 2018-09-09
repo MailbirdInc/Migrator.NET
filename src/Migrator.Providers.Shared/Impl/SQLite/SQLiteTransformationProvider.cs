@@ -548,44 +548,67 @@ namespace Migrator.Providers.SQLite
 
         public override void MigrationApplied(long version)
         {
-            // If we're debugging, check to make sure the migration didn't cause foreign key violations.
-            // The reason we only check when debugging is that the check can take a few seconds, and could also reveal earlier violations that might not cause issues for users
-            if (Debugger.IsAttached)
+#if DEBUG
+            // If connection state is not open, something went wrong and we don't need to check for violations
+            if (_connection.State == ConnectionState.Open)
             {
-                var hasViolations = false;
-                var cmdText = "PRAGMA foreign_key_check";
+                // If we're debugging, check to make sure the migration didn't cause foreign key violations.
+                // The reason we only check when debugging is that the check can take a few seconds, and could also reveal earlier violations that might not cause issues for users
+                var hasViolation = HasForeignKeyViolation();
 
-                if (_connection.State == ConnectionState.Open)
-                {
-                    // Current connection is open, so use it to check for violations
-                    hasViolations = ExecuteQuery(cmdText).Read();
-                }
-                else
-                {
-                    // Current connection is closed, so create a new one to check for violations
-                    using (var connection = GetConnection())
-                    {
-                        connection.Open();
-                        try
-                        {
-                            using (var cmd = connection.CreateCommand())
-                            {
-                                cmd.CommandText = cmdText;
-                                hasViolations = cmd.ExecuteReader().HasRows;
-                            }
-                        }
-                        finally
-                        {
-                            connection.Close();
-                        }
-                    }
-                }
+                if (!hasViolation)
+                    hasViolation = HasNamingViolation();
 
-                if (hasViolations)
-                    throw new Exception("Foreign key violations detected.");
+                if (hasViolation)
+                    throw new Exception($"Database violation detected. Migration: {version}");
             }
+#endif
 
             base.MigrationApplied(version);
+        }
+
+        private bool HasForeignKeyViolation()
+        {
+            return ExecuteQuery("PRAGMA foreign_key_check").Read();
+        }
+
+        private bool HasNamingViolation()
+        {
+            // Check that all naming conventions are being followed, since for indexes it's important in order for the migrator to work properly
+            using (var masterReader = ExecuteQuery("SELECT type, name, tbl_name FROM sqlite_master WHERE (type = 'index' OR type = 'trigger') AND sql NOT NULL"))
+            {
+                while (masterReader.Read())
+                {
+                    var name = (string)masterReader["name"];
+                    var table = (string)masterReader["tbl_name"];
+
+                    switch (masterReader["type"])
+                    {
+                        case "index":
+                            // Get index column names
+                            var columns = new List<string>();
+                            using (var indexReader = ExecuteQuery($"PRAGMA index_info({name})"))
+                                while (indexReader.Read())
+                                    columns.Add((string)indexReader["name"]);
+
+                            if (name != $"IN_{table}_{string.Join("_", columns)}")
+                                return true;
+
+                            break;
+
+                        case "trigger":
+                            if (!name.StartsWith($"TR_{table}_"))
+                                return true;
+
+                            break;
+
+                        default:
+                            throw new NotImplementedException();
+                    }
+                }
+            }
+
+            return false;
         }
     }
 }
