@@ -30,11 +30,23 @@ namespace Migrator.Providers.SQLite
             _connection = GetConnection();
             _connection.ConnectionString = _connectionString;
             _connection.Open();
+
+            EnableLegacyAlterTable();
         }
 
         private SqliteConnection GetConnection()
         {
             return new SqliteConnection(_connectionString);
+        }
+
+        private void EnableLegacyAlterTable()
+        {
+            // Enable legacy ALTER TABLE mode as the new way just requires other workarounds so is not really an improvement.
+            // With the new way it seems we have to manually go in and update at least other triggers that reference a table
+            // when we drop that table as part of recreating it (by creating a temp one, transferring data, dropping the original
+            // and then renaming the temp one to the original name). If we don't do that then the next ALTER TABLE command
+            // seems to do some kind of verification and find an error
+            ExecuteNonQuery("PRAGMA legacy_alter_table = ON");
         }
 
         public override void AddTable(string name, string engine, params Column[] columns)
@@ -237,6 +249,9 @@ namespace Migrator.Providers.SQLite
         
         public override void RenameColumn(string table, string oldColumn, string newColumn)
         {
+            // NOTE renaming a column is now supported by a single command in SQLite, but it doesn't play nice with our
+            // index naming check code so we keep using the old way for now.
+
             if (ColumnExists(table, newColumn))
                 throw new MigrationException(String.Format("Table '{0}' has column named '{1}' already", table, newColumn));
 
