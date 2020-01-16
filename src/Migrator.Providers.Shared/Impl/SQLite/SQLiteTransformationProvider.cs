@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using Migrator.Framework;
-using ForeignKeyConstraint=Migrator.Framework.ForeignKeyConstraint;
+using ForeignKeyConstraint = Migrator.Framework.ForeignKeyConstraint;
 #if MOBILE
 using SqliteConnection = Mono.Data.Sqlite.SqliteConnection;
 #else
@@ -99,15 +99,15 @@ namespace Migrator.Providers.SQLite
             ExecuteNonQuery(String.Format("INSERT INTO {0}_temp SELECT {1} FROM {0}", primaryTable, colNamesSql));
 
             // Add indexes from original table
-            MoveIndexesAndTriggersFromOriginalTable(primaryTable, primaryTable + "_temp");
+            UpdateIndexesAndTriggers(primaryTable, primaryTable + "_temp");
 
             //PerformForeignKeyAffectedAction(() =>
             //{
-                // Remove original table
-                RemoveTable(primaryTable);
+            // Remove original table
+            RemoveTable(primaryTable);
 
-                // Rename temporary table to original table name
-                ExecuteNonQuery(String.Format("ALTER TABLE {0}_temp RENAME TO {0}", primaryTable));
+            // Rename temporary table to original table name
+            ExecuteNonQuery(String.Format("ALTER TABLE {0}_temp RENAME TO {0}", primaryTable));
             //});
         }
 
@@ -141,7 +141,7 @@ namespace Migrator.Providers.SQLite
             ExecuteNonQuery(String.Format("INSERT INTO {0}_temp SELECT {1} FROM {0}", table, colNamesSql));
 
             // Add indexes from original table
-            MoveIndexesAndTriggersFromOriginalTable(table, table + "_temp");
+            UpdateIndexesAndTriggers(table, table + "_temp");
 
             //PerformForeignKeyAffectedAction(() =>
             //{
@@ -158,10 +158,26 @@ namespace Migrator.Providers.SQLite
             return compositeDefSql != null ? colDefsSql.TrimEnd(')') + "," + compositeDefSql : colDefsSql;
         }
 
-        private void MoveIndexesAndTriggersFromOriginalTable(string origTable, string newTable, string oldColumn = null, string newColumn = null)
+        private void UpdateIndexesAndTriggers(string origTable, string newTable, string oldColumn = null, string newColumn = null)
         {
             MoveSpecialFromOriginalTable(_INDEX_TYPE, origTable, newTable, oldColumn, newColumn);
             MoveSpecialFromOriginalTable(_TRIGGER_TYPE, origTable, newTable, oldColumn, newColumn);
+            UpdateTriggersReferencingOriginalTable(origTable, newTable);
+        }
+
+        private void UpdateTriggersReferencingOriginalTable(string origTable, string newTable)
+        {
+            foreach (var special in GetTriggerDefinitionsReferencingTable(origTable))
+            {
+                // First remove original special, because names have to be unique
+                ExecuteNonQuery(string.Format("DROP {0} {1}", _TRIGGER_TYPE.ToUpperInvariant(), special.Name));
+
+                // Create special on the same table, replacing the referenced table name.
+                var replaceRegex = new Regex(string.Format(_wholeWordPattern, origTable, RegexOptions.IgnoreCase));
+                var createSql = replaceRegex.Replace(special.Sql, newTable);
+
+                ExecuteNonQuery(createSql);
+            }
         }
 
         private void MoveSpecialFromOriginalTable(string type, string origTable, string newTable, string oldColumn, string newColumn)
@@ -187,7 +203,7 @@ namespace Migrator.Providers.SQLite
 
                     // Rename special name to new column name
                     createSql = Regex.Replace(createSql, string.Format(_wholeWordPattern, special.Item1), newIndexNameRegex.Replace(special.Item1, "_" + newColumn), RegexOptions.IgnoreCase);
-                    
+
                     // Rename any references to the old column
                     createSql = oldColumnRegex.Replace(createSql, newColumn);
                 }
@@ -206,84 +222,43 @@ namespace Migrator.Providers.SQLite
 
         public override void RemoveColumn(string table, string column)
         {
-            if (! (TableExists(table) && ColumnExists(table, column)))
+            if (!(TableExists(table) && ColumnExists(table, column)))
                 return;
 
             string compositeDefSql;
             string[] origColDefs = GetColumnDefs(table, out compositeDefSql);
             List<string> colDefs = new List<string>();
 
-            foreach (string origdef in origColDefs) 
+            foreach (string origdef in origColDefs)
             {
-                if (! ColumnMatch(column, origdef))
+                if (!ColumnMatch(column, origdef))
                     colDefs.Add(origdef);
             }
-            
+
             string[] newColDefs = colDefs.ToArray();
             string colDefsSql = String.Join(",", newColDefs);
-             
+
             string[] colNames = ParseSqlForColumnNames(newColDefs);
             string colNamesSql = String.Join(",", colNames);
 
             AddTable(table + "_temp", null, GetSqlForAddTable(table, colDefsSql, compositeDefSql));
             ExecuteNonQuery(String.Format("INSERT INTO {0}_temp SELECT {1} FROM {0}", table, colNamesSql));
-            MoveIndexesAndTriggersFromOriginalTable(table, table + "_temp");
+            UpdateIndexesAndTriggers(table, table + "_temp");
             //PerformForeignKeyAffectedAction(() =>
             //{
-                RemoveTable(table);
-                ExecuteNonQuery(String.Format("ALTER TABLE {0}_temp RENAME TO {0}", table));
+            RemoveTable(table);
+            ExecuteNonQuery(String.Format("ALTER TABLE {0}_temp RENAME TO {0}", table));
             //});
         }
-        
+
         public override void RenameColumn(string table, string oldColumn, string newColumn)
         {
             if (ColumnExists(table, newColumn))
-                throw new MigrationException(String.Format("Table '{0}' has column named '{1}' already", table, newColumn));
+                throw new MigrationException(string.Format("Table '{0}' has column named '{1}' already", table, newColumn));
 
-            string compositeDefSql;
-            string[] origColDefs = GetColumnDefs(table, out compositeDefSql);
-            List<string> colDefs = new List<string>(origColDefs);
-
-            string[] newColDefs = colDefs.ToArray();
-            string colDefsSql = String.Join(",", newColDefs);
-
-            string[] colNames = ParseSqlForColumnNames(newColDefs);
-            string colNamesSql = String.Join(",", colNames);
-
-            var regex = new Regex(string.Format(_wholeWordPattern, oldColumn), RegexOptions.IgnoreCase); // Doing a normal string.Replace would replace partial matches as well
-
-            var addTableSql = regex.Replace(GetSqlForAddTable(table, colDefsSql, compositeDefSql), newColumn);
-            AddTable(table + "_temp", null, addTableSql);
-            ExecuteNonQuery(String.Format("INSERT INTO {0}_temp SELECT {1} FROM {0}", table, colNamesSql)); // This was replacing {1} with regex.Replace(colNamesSql, oldColumn + " AS " + newColumn) but it would place AS between any quotes when it should be outside. But from what I can tell SQLite doesn't need AS at all so I removed it
-            MoveIndexesAndTriggersFromOriginalTable(table, table + "_temp", oldColumn, newColumn);
-            //PerformForeignKeyAffectedAction(() =>
-            //{
-                RemoveTable(table);
-                ExecuteNonQuery(String.Format("ALTER TABLE {0}_temp RENAME TO {0}", table));
-            //});
-
-
-            //if (ColumnExists(tableName, newColumnName))
-            //    throw new MigrationException(String.Format("Table '{0}' has column named '{1}' already", tableName, newColumnName));
-                
-            //if (ColumnExists(tableName, oldColumnName)) 
-            //{
-            //    string compositeDefSql;
-            //    string[] columnDefs = GetColumnDefs(tableName, out compositeDefSql);
-            //    string columnDef = Array.Find(columnDefs, delegate(string col) { return ColumnMatch(oldColumnName, col); });
-                
-            //    string newColumnDef = columnDef.Replace(oldColumnName, newColumnName);
-
-            //    //// Not null columns needs a default
-            //    //if (newColumnDef.Contains("NOT NULL"))
-            //    //    newColumnDef += " DEFAULT ('')"; // SQLite can put any value into any column so we can d
-                
-            //    AddColumn(tableName, newColumnDef);
-            //    ExecuteNonQuery(String.Format("UPDATE {0} SET {1}={2}", tableName, newColumnName, oldColumnName));
-            //    RemoveColumn(tableName, oldColumnName);
-            //}
+            ExecuteNonQuery(string.Format("ALTER TABLE {0} RENAME COLUMN {1} TO {2}", table, oldColumn, newColumn));
         }
-        
+
         public override void ChangeColumn(string table, Column column)
         {
             if (!ColumnExists(table, column.Name))
@@ -293,7 +268,7 @@ namespace Migrator.Providers.SQLite
             string[] origColDefs = GetColumnDefs(table, out compositeDefSql);
             List<string> colDefs = new List<string>();
 
-            foreach (string origdef in origColDefs) 
+            foreach (string origdef in origColDefs)
             {
                 if (!ColumnMatch(column.Name, origdef))
                     colDefs.Add(origdef);
@@ -304,24 +279,24 @@ namespace Migrator.Providers.SQLite
                     var constraintIndex = origdef.IndexOf("CONSTRAINT", StringComparison.OrdinalIgnoreCase);
                     if (constraintIndex > -1)
                         constraint = " " + origdef.Substring(constraintIndex);
-                    
+
                     colDefs.Add(Dialect.GetAndMapColumnProperties(column).ColumnSql + constraint); // Add new column definition
                 }
             }
-            
+
             string[] newColDefs = colDefs.ToArray();
             string colDefsSql = String.Join(",", newColDefs);
-             
+
             string[] colNames = ParseSqlForColumnNames(newColDefs);
             string colNamesSql = String.Join(",", colNames);
 
             AddTable(table + "_temp", null, GetSqlForAddTable(table, colDefsSql, compositeDefSql));
             ExecuteNonQuery(String.Format("INSERT INTO {0}_temp SELECT {1} FROM {0}", table, colNamesSql));
-            MoveIndexesAndTriggersFromOriginalTable(table, table + "_temp");
+            UpdateIndexesAndTriggers(table, table + "_temp");
             //PerformForeignKeyAffectedAction(() =>
             //{
-                RemoveTable(table);
-                ExecuteNonQuery(String.Format("ALTER TABLE {0}_temp RENAME TO {0}", table));
+            RemoveTable(table);
+            ExecuteNonQuery(String.Format("ALTER TABLE {0}_temp RENAME TO {0}", table));
             //});
 
 
@@ -341,25 +316,25 @@ namespace Migrator.Providers.SQLite
         public override bool TableExists(string table)
         {
             using (IDataReader reader =
-                ExecuteQuery(String.Format("SELECT name FROM sqlite_master WHERE type='table' and name='{0}'",table)))
+                ExecuteQuery(String.Format("SELECT name FROM sqlite_master WHERE type='table' and name='{0}'", table)))
             {
                 return reader.Read();
             }
         }
-        
+
         public override bool ConstraintExists(string table, string name)
         {
             return false;
         }
 
         public override bool IndexExists(string table, string name)
-		{
-			using (IDataReader reader =
-				ExecuteQuery(String.Format("SELECT name FROM sqlite_master WHERE type='index' and name='{0}'", name)))
-			{
-				return reader.Read();
-			}
-		}
+        {
+            using (IDataReader reader =
+                ExecuteQuery(String.Format("SELECT name FROM sqlite_master WHERE type='index' and name='{0}'", name)))
+            {
+                return reader.Read();
+            }
+        }
 
         public override string[] GetTables()
         {
@@ -369,7 +344,7 @@ namespace Migrator.Providers.SQLite
             {
                 while (reader.Read())
                 {
-                    tables.Add((string) reader[0]);
+                    tables.Add((string)reader[0]);
                 }
             }
 
@@ -386,7 +361,7 @@ namespace Migrator.Providers.SQLite
         }
 
         public override Column[] GetColumns(string table)
-        {       
+        {
             List<Column> columns = new List<Column>();
             string compositeDefSql;
             foreach (string columnDef in GetColumnDefs(table, out compositeDefSql))
@@ -405,15 +380,34 @@ namespace Migrator.Providers.SQLite
             return columns.ToArray();
         }
 
-        private string GetSqlDefString(string table) 
+        private string GetSqlDefString(string table)
         {
             string sqldef = null;
 
-            using (IDataReader reader = ExecuteQuery(String.Format("SELECT sql FROM sqlite_master WHERE type='table' AND name='{0}'",table)))
+            using (IDataReader reader = ExecuteQuery(String.Format("SELECT sql FROM sqlite_master WHERE type='table' AND name='{0}'", table)))
                 if (reader.Read())
-                    sqldef = (string) reader[0];
+                    sqldef = (string)reader[0];
 
-            return sqldef;    
+            return sqldef;
+        }
+
+        private List<(string Name, string Table, string Sql)> GetTriggerDefinitionsReferencingTable(string table)
+        {
+            var sqlStrings = new List<(string, string, string)>();
+            var tableRegex = new Regex(string.Format(_wholeWordPattern, table), RegexOptions.IgnoreCase);
+
+            using (IDataReader reader = ExecuteQuery(String.Format("SELECT name, tbl_name, sql FROM sqlite_master WHERE type='{0}' AND sql NOT NULL AND sql like '%{1}%'", _TRIGGER_TYPE.ToLowerInvariant(), table)))
+                while (reader.Read())
+                {
+                    var sql = (string)reader["sql"];
+
+                    if (tableRegex.IsMatch(sql))
+                    {
+                        sqlStrings.Add(((string)reader["name"], (string)reader["tbl_name"], sql));
+                    }
+                }
+
+            return sqlStrings;
         }
 
         private Tuple<string, string>[] GetCreateSpecialDefs(string table, string type)
@@ -425,7 +419,7 @@ namespace Migrator.Providers.SQLite
                     sqlStrings.Add(new Tuple<string, string>((string)reader["name"], (string)reader["sql"]));
 
             return sqlStrings.ToArray();
-        } 
+        }
 
         private string[] GetColumnNames(string table)
         {
@@ -435,24 +429,24 @@ namespace Migrator.Providers.SQLite
 
         private string[] GetColumnDefs(string table, out string compositeDefSql)
         {
-           return ParseSqlColumnDefs(GetSqlDefString(table), out compositeDefSql);
+            return ParseSqlColumnDefs(GetSqlDefString(table), out compositeDefSql);
         }
 
         /// <summary>
         /// Turn something like 'columnName INTEGER NOT NULL' into just 'columnName'
         /// </summary>
-        private string[] ParseSqlForColumnNames(string sqldef, out string compositeDefSql) 
+        private string[] ParseSqlForColumnNames(string sqldef, out string compositeDefSql)
         {
             string[] parts = ParseSqlColumnDefs(sqldef, out compositeDefSql);
             return ParseSqlForColumnNames(parts);
         }
 
-        private string[] ParseSqlForColumnNames(string[] parts) 
+        private string[] ParseSqlForColumnNames(string[] parts)
         {
             if (null == parts)
                 return null;
-                
-            for (int i = 0; i < parts.Length; i ++) 
+
+            for (int i = 0; i < parts.Length; i++)
             {
                 parts[i] = ExtractNameFromColumnDef(parts[i]);
             }
@@ -492,7 +486,7 @@ namespace Migrator.Providers.SQLite
 
         private bool IsNullable(string columnDef)
         {
-            return ! columnDef.Contains("NOT NULL");
+            return !columnDef.Contains("NOT NULL");
         }
 
         private bool IsUnique(string columnDef)
@@ -500,14 +494,14 @@ namespace Migrator.Providers.SQLite
             return columnDef.Contains(" UNIQUE "); // Need the spaces. Could be 'UNIQUEIDENTIFIER'
         }
 
-        private string[] ParseSqlColumnDefs(string sqldef, out string compositeDefSql) 
+        private string[] ParseSqlColumnDefs(string sqldef, out string compositeDefSql)
         {
-            if (String.IsNullOrEmpty(sqldef)) 
+            if (String.IsNullOrEmpty(sqldef))
             {
                 compositeDefSql = null;
                 return null;
             }
-            
+
             sqldef = sqldef.Replace(Environment.NewLine, " ");
             int start = sqldef.IndexOf("(");
 
@@ -520,14 +514,14 @@ namespace Migrator.Providers.SQLite
             }
             else
                 compositeDefSql = null;
-            
+
             int end = sqldef.LastIndexOf(")"); // Changed from 'IndexOf' to 'LastIndexOf' to handle foreign key definitions /mol
-            
+
             sqldef = sqldef.Substring(0, end);
             sqldef = sqldef.Substring(start + 1);
-            
-            string[] cols = sqldef.Split(new char[]{','});
-            for (int i = 0; i < cols.Length; i ++) 
+
+            string[] cols = sqldef.Split(new char[] { ',' });
+            for (int i = 0; i < cols.Length; i++)
             {
                 cols[i] = cols[i].Trim();
             }
