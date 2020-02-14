@@ -184,7 +184,7 @@ namespace Migrator.Providers.SQLite
                 ExecuteNonQuery(string.Format("DROP {0} {1}", type.ToUpperInvariant(), special.Item1));
 
                 // Create special on new table, replacing the table name.
-                // Note for triggers we create on temp tables we only replace the name of the table it's created on (the first occurance), not the name if defined in the actual trigger, 
+                // Note for triggers we create on temp tables we only replace the name of the table it's created on (the first occurrence), not the name if defined in the actual trigger, 
                 // since that won't auto-rename when we rename the table afterwards.
                 var replaceRegex = new Regex(string.Format(_wholeWordPattern, origTable, RegexOptions.IgnoreCase));
                 var createSql = replaceRegex.Replace(special.Item2, newTable, newTable.EndsWith("_temp") && type == _TRIGGER_TYPE ? 1 : int.MaxValue);
@@ -192,13 +192,17 @@ namespace Migrator.Providers.SQLite
                 Regex oldColumnRegex = new Regex(string.Format(_wholeWordPattern, oldColumn), RegexOptions.IgnoreCase);
                 if (oldColumn != null && oldColumnRegex.IsMatch(createSql))
                 {
-                    // Make sure the special's name is following our conventions, so we can rename it automatically
-                    var newIndexNameRegex = new Regex(string.Format(@"_{0}\b", oldColumn), RegexOptions.IgnoreCase);
-                    if (!newIndexNameRegex.IsMatch(special.Item1))
-                        throw new InvalidOperationException(string.Format("{0} name not following conventions. Remove and re-add index manually prior to renaming column instead.", type));
+                    // If the special is an index we want to rename it to follow the name of the column. We don't have a naming convention for triggers
+                    if (type == _INDEX_TYPE)
+                    {
+                        // Make sure the index's name is following our conventions, so we can rename it automatically
+                        var newIndexNameRegex = new Regex(string.Format(@"_{0}\b", oldColumn), RegexOptions.IgnoreCase);
+                        if (!newIndexNameRegex.IsMatch(special.Item1))
+                            throw new InvalidOperationException("Index name not following conventions. Instead remove and re-add index manually prior to renaming the column.");
 
-                    // Rename special name to new column name
-                    createSql = Regex.Replace(createSql, string.Format(_wholeWordPattern, special.Item1), newIndexNameRegex.Replace(special.Item1, "_" + newColumn), RegexOptions.IgnoreCase);
+                        // Rename index name to new column name
+                        createSql = Regex.Replace(createSql, string.Format(_wholeWordPattern, special.Item1), newIndexNameRegex.Replace(special.Item1, "_" + newColumn), RegexOptions.IgnoreCase);
+                    }
                     
                     // Rename any references to the old column
                     createSql = oldColumnRegex.Replace(createSql, newColumn);
