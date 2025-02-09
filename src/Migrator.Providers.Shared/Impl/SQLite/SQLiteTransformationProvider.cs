@@ -87,13 +87,11 @@ namespace Migrator.Providers.SQLite
             string compositeDefSql;
             string[] origColDefs = GetColumnDefs(primaryTable, out compositeDefSql);
             List<string> colDefs = new List<string>();
-            var updateConstraintStr = constraintMapper.SqlForConstraint(updateConstraint);
-            var deleteConstraintStr = constraintMapper.SqlForConstraint(deleteConstraint);
             foreach (string origdef in origColDefs)
             {
                 // Is this column one we should add a foreign key to?
                 if (ColumnMatch(primaryColumns[0], origdef))
-                    colDefs.Add(origdef + string.Format(" CONSTRAINT {0} REFERENCES {1}({2}) ON UPDATE {3} ON DELETE {4}", name, refTable, refColumns[0], updateConstraintStr, deleteConstraintStr));
+                    colDefs.Add(origdef + GetForeignKeyConstraintDefinition(name, refTable, refColumns[0], updateConstraint, deleteConstraint));
                 else
                     colDefs.Add(origdef);
             }
@@ -123,22 +121,43 @@ namespace Migrator.Providers.SQLite
             //});
         }
 
+        private string GetForeignKeyConstraintDefinition(string name, string refTable, string refColumn, ForeignKeyConstraint updateConstraint, ForeignKeyConstraint deleteConstraint)
+        {
+            return string.Format(" CONSTRAINT {0} REFERENCES {1}({2}) ON UPDATE {3} ON DELETE {4}", name, refTable, refColumn, constraintMapper.SqlForConstraint(updateConstraint), constraintMapper.SqlForConstraint(deleteConstraint));
+        }
+
         public override void RemoveForeignKey(string table, string name)
+        {
+            throw new NotSupportedException("Use special SQLite method with more parameters instead.");
+        }
+
+        // Because our FK names haven't been unique, and you can have multiple keys for the same column, we match everything to ensure we remove the right one
+        public void RemoveForeignKey(string name, string refTable, string refColumn, string primaryTable, string primaryColumn, ForeignKeyConstraint updateConstraint, ForeignKeyConstraint deleteConstraint)
         {
             // Generate new table definition with foreign key
             string compositeDefSql;
-            string[] origColDefs = GetColumnDefs(table, out compositeDefSql);
+            string[] origColDefs = GetColumnDefs(primaryTable, out compositeDefSql);
             List<string> colDefs = new List<string>();
 
+            var foreignKeyDef = GetForeignKeyConstraintDefinition(name, refTable, refColumn, updateConstraint, deleteConstraint);
+            var foundMatch = false;
             foreach (string origdef in origColDefs)
             {
                 // Strip the constraint part of the column definition
-                var constraintIndex = origdef.IndexOf(string.Format(" CONSTRAINT {0}", name), StringComparison.OrdinalIgnoreCase);
-                if (constraintIndex > -1)
-                    colDefs.Add(origdef.Substring(0, constraintIndex));
+                if (ColumnMatch(primaryColumn, origdef) && origdef.Contains(foreignKeyDef))
+                {
+                    if (foundMatch)
+                        throw new InvalidOperationException("Multiple foreign keys matching removal request."); // We likely never want to remove multiple keys in one go
+
+                    colDefs.Add(origdef.Replace(foreignKeyDef, ""));
+                    foundMatch = true;
+                }
                 else
                     colDefs.Add(origdef);
             }
+
+            if (!foundMatch)
+                throw new Exception("No foreign keys matching removal request."); // If this happens, it could be that the definition doesn't always match - which should be fixed
 
             string[] newColDefs = colDefs.ToArray();
             string colDefsSql = String.Join(",", newColDefs);
@@ -147,21 +166,21 @@ namespace Migrator.Providers.SQLite
             string colNamesSql = String.Join(",", colNames);
 
             // Create new table with temporary name
-            AddTable(table + "_temp", null, GetSqlForAddTable(table, colDefsSql, compositeDefSql));
+            AddTable(primaryTable + "_temp", null, GetSqlForAddTable(primaryTable, colDefsSql, compositeDefSql));
 
             // Copy data from original table to temporary table
-            ExecuteNonQuery(String.Format("INSERT INTO {0}_temp SELECT {1} FROM {0}", table, colNamesSql));
+            ExecuteNonQuery(String.Format("INSERT INTO {0}_temp SELECT {1} FROM {0}", primaryTable, colNamesSql));
 
             // Add indexes from original table
-            MoveIndexesAndTriggersFromOriginalTable(table, table + "_temp");
+            MoveIndexesAndTriggersFromOriginalTable(primaryTable, primaryTable + "_temp");
 
             //PerformForeignKeyAffectedAction(() =>
             //{
             // Remove original table
-            RemoveTable(table);
+            RemoveTable(primaryTable);
 
             // Rename temporary table to original table name
-            ExecuteNonQuery(String.Format("ALTER TABLE {0}_temp RENAME TO {0}", table));
+            ExecuteNonQuery(String.Format("ALTER TABLE {0}_temp RENAME TO {0}", primaryTable));
             //});
         }
 
