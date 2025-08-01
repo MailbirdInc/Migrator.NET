@@ -132,7 +132,7 @@ namespace Migrator.Providers.SQLite
         }
 
         // Because our FK names haven't been unique, and you can have multiple keys for the same column, we match everything to ensure we remove the right one
-        public void RemoveForeignKey(string name, string refTable, string refColumn, string primaryTable, string primaryColumn, ForeignKeyConstraint updateConstraint, ForeignKeyConstraint deleteConstraint)
+        public void RemoveForeignKey(string name, string refTable, string refColumn, string primaryTable, string primaryColumn, ForeignKeyConstraint updateConstraint, ForeignKeyConstraint deleteConstraint, bool throwOnMissingKey = true)
         {
             // Generate new table definition with foreign key
             string compositeDefSql;
@@ -157,7 +157,12 @@ namespace Migrator.Providers.SQLite
             }
 
             if (!foundMatch)
-                throw new Exception("No foreign keys matching removal request."); // If this happens, it could be that the definition doesn't always match - which should be fixed
+            {
+                if (throwOnMissingKey)
+                    throw new Exception("No foreign keys matching removal request."); // If this happens, it could be that the definition doesn't always match - which should be fixed
+                else
+                    return;
+            }
 
             string[] newColDefs = colDefs.ToArray();
             string colDefsSql = String.Join(",", newColDefs);
